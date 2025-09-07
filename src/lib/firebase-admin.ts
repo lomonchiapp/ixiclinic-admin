@@ -96,14 +96,35 @@ export class FirebaseAdminService {
   
   async getUsersByAccount(accountId: string): Promise<User[]> {
     try {
-      const usersRef = collection(db, `accounts/${accountId}/users`);
-      const q = query(usersRef, orderBy('createdAt', 'desc'));
-      const querySnapshot = await getDocs(q);
+      // Primero intentar obtener de la subcolección (estructura nueva)
+      const usersSubRef = collection(db, `accounts/${accountId}/users`);
+      const subQuery = query(usersSubRef, orderBy('createdAt', 'desc'));
+      const subQuerySnapshot = await getDocs(subQuery);
       
-      return querySnapshot.docs.map(doc => ({
+      if (subQuerySnapshot.docs.length > 0) {
+        console.log(`📁 Encontrados ${subQuerySnapshot.docs.length} usuarios en subcolección para cuenta ${accountId}`);
+        return subQuerySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as User));
+      }
+      
+      // Si no hay datos en subcolección, buscar en colección global (estructura anterior)
+      const usersGlobalRef = collection(db, 'users');
+      const globalQuery = query(
+        usersGlobalRef, 
+        where('accountId', '==', accountId),
+        orderBy('createdAt', 'desc')
+      );
+      const globalQuerySnapshot = await getDocs(globalQuery);
+      
+      console.log(`🌐 Encontrados ${globalQuerySnapshot.docs.length} usuarios en colección global para cuenta ${accountId}`);
+      
+      return globalQuerySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       } as User));
+      
     } catch (error) {
       console.error('Error fetching users by account:', error);
       throw new Error('Error al obtener los usuarios de la cuenta');
@@ -114,14 +135,35 @@ export class FirebaseAdminService {
   
   async getPatientsByAccount(accountId: string): Promise<Patient[]> {
     try {
-      const patientsRef = collection(db, `accounts/${accountId}/patients`);
-      const q = query(patientsRef, orderBy('createdAt', 'desc'));
-      const querySnapshot = await getDocs(q);
+      // Primero intentar obtener de la subcolección (estructura nueva)
+      const patientsSubRef = collection(db, `accounts/${accountId}/patients`);
+      const subQuery = query(patientsSubRef, orderBy('createdAt', 'desc'));
+      const subQuerySnapshot = await getDocs(subQuery);
       
-      return querySnapshot.docs.map(doc => ({
+      if (subQuerySnapshot.docs.length > 0) {
+        console.log(`📁 Encontrados ${subQuerySnapshot.docs.length} pacientes en subcolección para cuenta ${accountId}`);
+        return subQuerySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Patient));
+      }
+      
+      // Si no hay datos en subcolección, buscar en colección global (estructura anterior)
+      const patientsGlobalRef = collection(db, 'patients');
+      const globalQuery = query(
+        patientsGlobalRef, 
+        where('accountId', '==', accountId),
+        orderBy('createdAt', 'desc')
+      );
+      const globalQuerySnapshot = await getDocs(globalQuery);
+      
+      console.log(`🌐 Encontrados ${globalQuerySnapshot.docs.length} pacientes en colección global para cuenta ${accountId}`);
+      
+      return globalQuerySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       } as Patient));
+      
     } catch (error) {
       console.error('Error fetching patients by account:', error);
       throw new Error('Error al obtener los pacientes de la cuenta');
@@ -149,14 +191,36 @@ export class FirebaseAdminService {
   
   async getAppointmentsByAccount(accountId: string): Promise<Appointment[]> {
     try {
-      const appointmentsRef = collection(db, `accounts/${accountId}/appointments`);
-      const q = query(appointmentsRef, orderBy('date', 'desc'), limit(100));
-      const querySnapshot = await getDocs(q);
+      // Primero intentar obtener de la subcolección (estructura nueva)
+      const appointmentsSubRef = collection(db, `accounts/${accountId}/appointments`);
+      const subQuery = query(appointmentsSubRef, orderBy('date', 'desc'), limit(100));
+      const subQuerySnapshot = await getDocs(subQuery);
       
-      return querySnapshot.docs.map(doc => ({
+      if (subQuerySnapshot.docs.length > 0) {
+        console.log(`📁 Encontradas ${subQuerySnapshot.docs.length} citas en subcolección para cuenta ${accountId}`);
+        return subQuerySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Appointment));
+      }
+      
+      // Si no hay datos en subcolección, buscar en colección global (estructura anterior)
+      const appointmentsGlobalRef = collection(db, 'appointments');
+      const globalQuery = query(
+        appointmentsGlobalRef, 
+        where('accountId', '==', accountId),
+        orderBy('date', 'desc'),
+        limit(100)
+      );
+      const globalQuerySnapshot = await getDocs(globalQuery);
+      
+      console.log(`🌐 Encontradas ${globalQuerySnapshot.docs.length} citas en colección global para cuenta ${accountId}`);
+      
+      return globalQuerySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       } as Appointment));
+      
     } catch (error) {
       console.error('Error fetching appointments by account:', error);
       throw new Error('Error al obtener las citas de la cuenta');

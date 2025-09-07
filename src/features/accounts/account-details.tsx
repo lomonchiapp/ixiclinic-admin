@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from '@tanstack/react-router'
+import { useAccountInfo } from '@/hooks/use-account-info'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -92,12 +93,15 @@ export function AccountDetails() {
   const { accountId } = useParams({ strict: false })
   const navigate = useNavigate()
   
-  const [account, setAccount] = useState<Account | null>(null)
-  const [accountStats, setAccountStats] = useState<AccountStats | null>(null)
-  const [patients, setPatients] = useState<Patient[]>([])
-  const [users, setUsers] = useState<User[]>([])
-  const [appointments, setAppointments] = useState<Appointment[]>([])
-  const [loading, setLoading] = useState(true)
+  // Usar el hook useAccountInfo
+  const { 
+    data: accountInfo, 
+    isLoading: loading, 
+    error,
+    refetch 
+  } = useAccountInfo(accountId as string)
+  
+  // Estados locales para funcionalidades específicas del componente
   const [activeTab, setActiveTab] = useState('overview')
   
   // Dialogs state
@@ -122,70 +126,61 @@ export function AccountDetails() {
   // const { plans } = usePlansStore() // No se usa más, se usan los planes del paquete
   const { getSubscriptionByAccountId } = usePayPalStore()
 
+  // Extraer datos del hook
+  const account = accountInfo?.account
+  const patients = accountInfo?.patients || []
+  const users = accountInfo?.users || []
+  const appointments = accountInfo?.appointments || []
+  const stats = accountInfo?.stats
+
+  // Crear accountStats compatible con el formato anterior
+  const accountStats: AccountStats | null = stats ? {
+    totalPatients: stats.totalPatients,
+    totalUsers: stats.totalUsers,
+    totalAppointments: stats.totalAppointments,
+    totalInvoices: 0, // TODO: implementar cuando tengamos invoices
+    totalRevenue: 0, // TODO: implementar cuando tengamos revenue data
+    storageUsed: Math.random() * 1000, // TODO: implementar storage real
+    lastActivity: appointments.length > 0 
+      ? new Date(Math.max(...appointments.map(a => new Date(a.createdAt || 0).getTime())))
+      : null
+  } : null
+
   useEffect(() => {
-    if (accountId) {
-      loadAccountDetails()
+    // Redirigir si no se encuentra la cuenta
+    if (!loading && !account && accountId) {
+      navigate({ to: '/accounts' })
+      return
     }
-  }, [accountId])
+  }, [account, loading, navigate, accountId])
 
-  const loadAccountDetails = async () => {
-    if (!accountId) return
-    
-    try {
-      setLoading(true)
-      
-      // Cargar datos en paralelo
-      const [
-        accountData,
-        patientsData,
-        usersData,
-        appointmentsData
-      ] = await Promise.all([
-        firebaseAdminService.getAccountById(accountId),
-        firebaseAdminService.getPatientsByAccount(accountId),
-        firebaseAdminService.getUsersByAccount(accountId),
-        firebaseAdminService.getAppointmentsByAccount(accountId)
-      ])
+  useEffect(() => {
+    // Cargar datos de PayPal si la cuenta tiene subscripción
+    if (account?.subscription?.paypalSubscriptionId) {
+      // fetchSubscriptions(account.subscription.paypalSubscriptionId)
+    }
+  }, [account?.subscription?.paypalSubscriptionId])
 
-      if (!accountData) {
-        navigate({ to: '/accounts' })
-        return
-      }
+  // Manejo de errores del hook
+  useEffect(() => {
+    if (error) {
+      console.error('Error loading account data:', error)
+      toast.error('Error al cargar los datos de la cuenta')
+    }
+  }, [error])
 
-      setAccount(accountData)
-      setPatients(patientsData)
-      setUsers(usersData)
-      setAppointments(appointmentsData)
-
-      // Calcular estadísticas
-      const stats: AccountStats = {
-        totalPatients: patientsData.length,
-        totalUsers: usersData.length,
-        totalAppointments: appointmentsData.length,
-        totalInvoices: 0,
-        totalRevenue: 0,
-        storageUsed: Math.random() * 1000, // Simular por ahora
-        lastActivity: appointmentsData.length > 0 
-          ? new Date(Math.max(...appointmentsData.map(a => new Date(a.createdAt as any).getTime())))
-          : null
-      }
-      setAccountStats(stats)
-
-      // Inicializar formulario de edición
+  // Inicializar formulario de edición cuando se carga la cuenta
+  useEffect(() => {
+    if (account) {
       setEditForm({
-        centerName: accountData.settings?.centerName || '',
-        doctorName: accountData.settings?.doctorName || '',
-        phone: accountData.settings?.phone || '',
-        address: accountData.settings?.address || '',
-        city: accountData.settings?.city || ''
+        centerName: account.settings?.centerName || '',
+        doctorName: account.settings?.doctorName || '',
+        phone: account.settings?.phone || '',
+        address: account.settings?.address || '',
+        city: account.settings?.city || ''
       })
-
-    } catch (error) {
-      console.error('Error loading account details:', error)
-    } finally {
-      setLoading(false)
     }
-  }
+  }, [account])
 
   const handleMembershipAction = async () => {
     if (!account || !membershipAction.reason.trim()) return
@@ -229,7 +224,7 @@ export function AccountDetails() {
       }
 
       // Recargar datos
-      await loadAccountDetails()
+      refetch()
       setMembershipDialog(false)
       setMembershipAction({ type: 'assign_free', reason: '' })
       toast.success('Acción de membresía aplicada exitosamente')
@@ -246,7 +241,7 @@ export function AccountDetails() {
       // Implementar asignación de Firebase Auth
       await firebaseAdminService.assignFirebaseAuth(account.id, firebaseEmail)
       
-      await loadAccountDetails()
+      refetch()
       setFirebaseDialog(false)
       setFirebaseEmail('')
       toast.success('Firebase Auth asignado exitosamente')
@@ -272,7 +267,7 @@ export function AccountDetails() {
       }
 
       await firebaseAdminService.updateAccount(account.id, updates)
-      await loadAccountDetails()
+      refetch()
       setEditDialog(false)
     } catch (error) {
       console.error('Error updating account:', error)
