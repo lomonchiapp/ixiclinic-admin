@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -24,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { DataTablePagination } from '@/components/ui/data-table-pagination'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { TopNav } from '@/components/layout/top-nav'
@@ -40,9 +42,14 @@ import {
   MapPin,
   Filter,
   Download,
-  Eye
+  Eye,
+  ArrowUpDown,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react'
 import { firebaseAdminService } from '@/lib/firebase-admin'
+import { useTablePagination } from '@/hooks/use-table-pagination'
+import { useTableSorting } from '@/hooks/use-table-sorting'
 import { toast } from 'sonner'
 import type { Patient, Account } from 'ixiclinic-types/dist/admin-exports'
 
@@ -57,6 +64,27 @@ export function PatientsManagement() {
   const [searchTerm, setSearchTerm] = useState('')
   const [accountFilter, setAccountFilter] = useState<string>('all')
   const [accounts, setAccounts] = useState<Account[]>([])
+
+  // Hooks para paginación y ordenamiento
+  const {
+    sortedData: sortedPatients,
+    requestSort,
+    getSortIndicator
+  } = useTableSorting({ 
+    data: filteredPatients,
+    initialSort: { key: 'createdAt', direction: 'desc' }
+  })
+  
+  const {
+    currentPage,
+    pageSize,
+    paginatedData: displayedPatients,
+    setPage,
+    setPageSize
+  } = useTablePagination({ 
+    data: sortedPatients,
+    initialPageSize: 20
+  })
 
   useEffect(() => {
     loadPatients()
@@ -321,26 +349,47 @@ export function PatientsManagement() {
                 </div>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Paciente</TableHead>
-                    <TableHead>Contacto</TableHead>
-                    <TableHead>Cuenta</TableHead>
-                    <TableHead>Fecha de Registro</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredPatients.map((patient) => (
-                    <TableRow key={patient.id}>
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => requestSort('firstName')}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span>Paciente</span>
+                          {getSortIndicator('firstName') === 'asc' && <ChevronUp className="h-4 w-4" />}
+                          {getSortIndicator('firstName') === 'desc' && <ChevronDown className="h-4 w-4" />}
+                          {!getSortIndicator('firstName') && <ArrowUpDown className="h-4 w-4" />}
+                        </div>
+                      </TableHead>
+                      <TableHead>Contacto</TableHead>
+                      <TableHead>Cuenta</TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => requestSort('createdAt')}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span>Fecha de Registro</span>
+                          {getSortIndicator('createdAt') === 'asc' && <ChevronUp className="h-4 w-4" />}
+                          {getSortIndicator('createdAt') === 'desc' && <ChevronDown className="h-4 w-4" />}
+                          {!getSortIndicator('createdAt') && <ArrowUpDown className="h-4 w-4" />}
+                        </div>
+                      </TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {displayedPatients.map((patient) => (
+                      <TableRow key={patient.id} className="hover:bg-muted/50">
                       <TableCell>
                         <div>
                           <div className="font-medium">
                             {patient.firstName} {patient.lastName}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            ID: {patient.id}
+                            Edad: {patient.dateOfBirth ? calculateAge(patient.dateOfBirth) : 'N/A'}
                           </div>
                         </div>
                       </TableCell>
@@ -379,8 +428,19 @@ export function PatientsManagement() {
                       </TableCell>
                     </TableRow>
                   ))}
-                </TableBody>
-              </Table>
+                  </TableBody>
+                </Table>
+
+                {/* Paginación */}
+                <DataTablePagination
+                  totalItems={filteredPatients.length}
+                  currentPage={currentPage}
+                  pageSize={pageSize}
+                  onPageChange={setPage}
+                  onPageSizeChange={setPageSize}
+                  className="border-t pt-4"
+                />
+              </>
             )}
           </CardContent>
         </Card>
@@ -403,5 +463,7 @@ const topNav = [
     disabled: true,
   },
 ]
+
+
 
 

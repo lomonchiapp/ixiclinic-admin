@@ -94,6 +94,35 @@ export class FirebaseAdminService {
 
   // ===== Métodos para Usuarios =====
   
+  async getAllUsersWithAccountInfo(): Promise<(User & { accountInfo?: Account })[]> {
+    try {
+      const users: (User & { accountInfo?: Account })[] = [];
+      
+      // Obtener todas las cuentas primero
+      const accounts = await this.getAllAccounts();
+      
+      // Para cada cuenta, obtener sus usuarios
+      for (const account of accounts) {
+        const accountUsers = await this.getUsersByAccount(account.id);
+        
+        // Agregar información de la cuenta a cada usuario
+        const usersWithAccountInfo = accountUsers.map(user => ({
+          ...user,
+          accountInfo: account
+        }));
+        
+        users.push(...usersWithAccountInfo);
+      }
+      
+      console.log(`✅ Cargados ${users.length} usuarios de ${accounts.length} cuentas`);
+      return users;
+      
+    } catch (error) {
+      console.error('Error fetching all users with account info:', error);
+      throw new Error('Error al obtener todos los usuarios');
+    }
+  }
+
   async getUsersByAccount(accountId: string): Promise<User[]> {
     try {
       // Primero intentar obtener de la subcolección (estructura nueva)
@@ -128,6 +157,36 @@ export class FirebaseAdminService {
     } catch (error) {
       console.error('Error fetching users by account:', error);
       throw new Error('Error al obtener los usuarios de la cuenta');
+    }
+  }
+
+  async createUserInAccount(accountId: string, userData: Partial<User>): Promise<string> {
+    try {
+      // Verificar que la cuenta existe
+      const account = await this.getAccountById(accountId);
+      if (!account) {
+        throw new Error('La cuenta no existe');
+      }
+
+      const newUser = {
+        ...userData,
+        accountId,
+        role: userData.role || UserRole.USER,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+        isActive: true
+      };
+
+      // Intentar crear en subcolección primero
+      const usersSubRef = collection(db, `accounts/${accountId}/users`);
+      const docRef = await addDoc(usersSubRef, newUser);
+      
+      console.log(`✅ Usuario creado en subcolección para cuenta ${accountId}: ${docRef.id}`);
+      return docRef.id;
+      
+    } catch (error) {
+      console.error('Error creating user in account:', error);
+      throw new Error('Error al crear el usuario');
     }
   }
 

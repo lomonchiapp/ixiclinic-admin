@@ -32,6 +32,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { DataTablePagination } from '@/components/ui/data-table-pagination'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { TopNav } from '@/components/layout/top-nav'
@@ -50,23 +51,46 @@ import {
   Calendar,
   UserPlus,
   CreditCard,
-  AlertTriangle,
   CheckCircle,
-  MoreVertical
+  MoreVertical,
+  ArrowUpDown,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react'
 import { firebaseAdminService } from '@/lib/firebase-admin'
+import { useTablePagination } from '@/hooks/use-table-pagination'
+import { useTableSorting } from '@/hooks/use-table-sorting'
 import type { Account, SubscriptionStatus } from 'ixiclinic-types/dist/admin-exports'
-// Firebase Auth service ya no es necesario
 import { toast } from 'sonner'
 
 export function AccountsManagement() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [filteredAccounts, setFilteredAccounts] = useState<Account[]>([])
   const [loading, setLoading] = useState(true)
-  // Estado de Firebase Auth eliminado - ya no es necesario
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [typeFilter, setTypeFilter] = useState<string>('all')
+
+  // Hooks para paginación y ordenamiento
+  const {
+    sortedData: sortedAccounts,
+    requestSort,
+    getSortIndicator
+  } = useTableSorting({ 
+    data: filteredAccounts,
+    initialSort: { key: 'createdAt', direction: 'desc' }
+  })
+  
+  const {
+    currentPage,
+    pageSize,
+    paginatedData: displayedAccounts,
+    setPage,
+    setPageSize
+  } = useTablePagination({ 
+    data: sortedAccounts,
+    initialPageSize: 20
+  })
 
   useEffect(() => {
     loadAccounts()
@@ -239,7 +263,7 @@ export function AccountsManagement() {
         </div>
 
         {/* Estadísticas rápidas */}
-        <div className='mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
+        <div className='mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
           <Card>
             <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
               <CardTitle className='text-sm font-medium'>Total Cuentas</CardTitle>
@@ -271,21 +295,6 @@ export function AccountsManagement() {
               <div className='text-2xl font-bold'>
                 {accounts.filter(a => a.billingInfo?.subscriptionStatus === 'trial').length}
               </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-              <CardTitle className='text-sm font-medium'>Sin Firebase Auth</CardTitle>
-              <AlertTriangle className='h-4 w-4 text-yellow-600' />
-            </CardHeader>
-            <CardContent>
-              <div className='text-2xl font-bold'>
-                {accounts.filter(a => !a.ownerId).length}
-              </div>
-              <p className='text-xs text-muted-foreground'>
-                Sin autenticación verificada
-              </p>
             </CardContent>
           </Card>
         </div>
@@ -345,85 +354,127 @@ export function AccountsManagement() {
               {filteredAccounts.length} de {accounts.length} cuentas mostradas
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             {loading ? (
               <div className='flex items-center justify-center py-8'>
                 <div className='text-muted-foreground'>Cargando cuentas...</div>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Cuenta</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Fecha de Creación</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredAccounts.map((account) => (
-                    <TableRow key={account.id}>
-                      <TableCell>
-                        <div>
-                          <div className='font-medium'>
-                            {account.settings?.centerName || account.settings?.doctorName || 'Sin nombre'}
-                          </div>
-                          <div className='text-sm text-muted-foreground'>
-                            {account.email}
-                          </div>
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => requestSort('email')}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span>Cuenta</span>
+                          {getSortIndicator('email') === 'asc' && <ChevronUp className="h-4 w-4" />}
+                          {getSortIndicator('email') === 'desc' && <ChevronDown className="h-4 w-4" />}
+                          {!getSortIndicator('email') && <ArrowUpDown className="h-4 w-4" />}
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        {getTypeBadge(account.type)}
-                      </TableCell>
-                      <TableCell>
-                        {getStatusBadge(account.billingInfo?.subscriptionStatus)}
-                      </TableCell>
-                      <TableCell>
-                        {formatDate(account.createdAt)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => window.location.href = `/accounts/${account.id}`}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              Ver Detalles
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Editar Información
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <CreditCard className="mr-2 h-4 w-4" />
-                              Gestionar Membresía
-                            </DropdownMenuItem>
-                            {!account.ownerId && (
-                              <DropdownMenuItem>
-                                <UserPlus className="mr-2 h-4 w-4" />
-                                Asignar Firebase Auth
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              className="text-destructive"
-                              onClick={() => handleDeleteAccount(account.id, account.email || 'Cuenta sin nombre')}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Eliminar Cuenta
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => requestSort('type')}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span>Tipo</span>
+                          {getSortIndicator('type') === 'asc' && <ChevronUp className="h-4 w-4" />}
+                          {getSortIndicator('type') === 'desc' && <ChevronDown className="h-4 w-4" />}
+                          {!getSortIndicator('type') && <ArrowUpDown className="h-4 w-4" />}
+                        </div>
+                      </TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => requestSort('createdAt')}
+                      >
+                        <div className="flex items-center space-x-1">
+                          <span>Fecha de Creación</span>
+                          {getSortIndicator('createdAt') === 'asc' && <ChevronUp className="h-4 w-4" />}
+                          {getSortIndicator('createdAt') === 'desc' && <ChevronDown className="h-4 w-4" />}
+                          {!getSortIndicator('createdAt') && <ArrowUpDown className="h-4 w-4" />}
+                        </div>
+                      </TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {displayedAccounts.map((account) => (
+                      <TableRow key={account.id} className="hover:bg-muted/50">
+                        <TableCell>
+                          <div>
+                            <Link 
+                              to="/accounts/$accountId" 
+                              params={{ accountId: account.id }}
+                              className="font-medium hover:underline text-primary"
+                            >
+                              {account.settings?.centerName || account.settings?.doctorName || 'Sin nombre'}
+                            </Link>
+                            <div className='text-sm text-muted-foreground'>
+                              {account.email}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {getTypeBadge(account.type)}
+                        </TableCell>
+                        <TableCell>
+                          {getStatusBadge(account.billingInfo?.subscriptionStatus)}
+                        </TableCell>
+                        <TableCell>
+                          {formatDate(account.createdAt)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem asChild>
+                                <Link to="/accounts/$accountId" params={{ accountId: account.id }}>
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  Ver Detalles
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Editar Información
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <CreditCard className="mr-2 h-4 w-4" />
+                                Gestionar Membresía
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                className="text-destructive"
+                                onClick={() => handleDeleteAccount(account.id, account.email || 'Cuenta sin nombre')}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Eliminar Cuenta
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+
+                {/* Paginación */}
+                <DataTablePagination
+                  totalItems={filteredAccounts.length}
+                  currentPage={currentPage}
+                  pageSize={pageSize}
+                  onPageChange={setPage}
+                  onPageSizeChange={setPageSize}
+                  className="border-t pt-4"
+                />
+              </>
             )}
           </CardContent>
         </Card>
@@ -442,12 +493,6 @@ const topNav = [
   {
     title: 'Cuentas Activas',
     href: '/accounts/active',
-    isActive: false,
-    disabled: true,
-  },
-  {
-    title: 'Trials',
-    href: '/accounts/trials',
     isActive: false,
     disabled: true,
   },

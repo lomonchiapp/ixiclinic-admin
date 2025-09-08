@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from '@tanstack/react-router'
 import { useAccountInfo } from '@/hooks/use-account-info'
+import { useTablePagination } from '@/hooks/use-table-pagination'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -39,6 +40,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { DataTablePagination } from '@/components/ui/data-table-pagination'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { TopNav } from '@/components/layout/top-nav'
@@ -67,7 +69,6 @@ import {
 } from 'lucide-react'
 import { firebaseAdminService } from '@/lib/firebase-admin'
 import { usePayPalStore } from '@/stores/paypal-store'
-// import { usePlansStore } from '@/stores/plans-store' // No se usa más
 import { toast } from 'sonner'
 import type { Account, Patient, User, Appointment } from 'ixiclinic-types/dist/admin-exports'
 import { PLANS } from 'ixiclinic-types/dist/planConfigs'
@@ -132,6 +133,40 @@ export function AccountDetails() {
   const users = accountInfo?.users || []
   const appointments = accountInfo?.appointments || []
   const stats = accountInfo?.stats
+
+  // Hooks de paginación para cada sección (después de definir los datos)
+  const {
+    currentPage: currentPagePatients,
+    pageSize: pageSizePatients,
+    paginatedData: paginatedPatients,
+    setPage: setPagePatients,
+    setPageSize: setPageSizePatients
+  } = useTablePagination({ 
+    data: patients,
+    initialPageSize: 10
+  })
+
+  const {
+    currentPage: currentPageUsers,
+    pageSize: pageSizeUsers,
+    paginatedData: paginatedUsers,
+    setPage: setPageUsers,
+    setPageSize: setPageSizeUsers
+  } = useTablePagination({ 
+    data: users,
+    initialPageSize: 10
+  })
+
+  const {
+    currentPage: currentPageAppointments,
+    pageSize: pageSizeAppointments,
+    paginatedData: paginatedAppointments,
+    setPage: setPageAppointments,
+    setPageSize: setPageSizeAppointments
+  } = useTablePagination({ 
+    data: appointments,
+    initialPageSize: 10
+  })
 
   // Crear accountStats compatible con el formato anterior
   const accountStats: AccountStats | null = stats ? {
@@ -888,7 +923,7 @@ export function AccountDetails() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {patients.slice(0, 10).map((patient) => (
+                      {paginatedPatients.map((patient) => (
                         <TableRow key={patient.id}>
                           <TableCell>
                             {patient.firstName} {patient.lastName}
@@ -900,6 +935,17 @@ export function AccountDetails() {
                       ))}
                     </TableBody>
                   </Table>
+                )}
+                
+                {patients.length > 0 && (
+                  <DataTablePagination
+                    totalItems={patients.length}
+                    currentPage={currentPagePatients}
+                    pageSize={pageSizePatients}
+                    onPageChange={setPagePatients}
+                    onPageSizeChange={setPageSizePatients}
+                    className="border-t pt-4"
+                  />
                 )}
               </CardContent>
             </Card>

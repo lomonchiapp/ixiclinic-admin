@@ -71,18 +71,8 @@ export const sidebarData: SidebarData = {
           icon: Building2,
         },
         {
-          title: 'Suscripciones',
-          url: '/subscriptions',
-          icon: CreditCard,
-        },
-        {
-          title: 'Trials',
-          url: '/trials',
-          icon: Clock,
-        },
-        {
-          title: 'Usuarios por Cuenta',
-          url: '/account-users',
+          title: 'Usuarios',
+          url: '/users',
           icon: UserCheck,
         },
       ],
@@ -99,6 +89,11 @@ export const sidebarData: SidebarData = {
           title: 'Citas',
           url: '/appointments',
           icon: Calendar,
+        },
+        {
+          title: 'Facturas',
+          url: '/invoices',
+          icon: CreditCard,
         },
         {
           title: 'Actividad Médica',
